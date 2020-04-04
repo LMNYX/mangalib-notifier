@@ -48,13 +48,13 @@ const flags = args.parse(process.argv)
 if(flags.m == undefined)
 {
 	console.log("Ошибка: Не указан ID манги!".red);
-	console.log("Пример: ".help+"node notifier.js -m naruto -u http://example.com/example.php".warn);
+	console.log("Пример: "+help+"node notifier.js -m naruto -u http://example.com/example.php".warn);
 	process.exit(1);
 }
 if(flags.u == undefined)
 {
 	console.log("Ошибка: Не указан URL отправки!".red);
-	console.log("Пример: ".help+"node notifier.js -m naruto -u http://example.com/example.php".warn);
+	console.log("Пример: "+help+"node notifier.js -m naruto -u http://example.com/example.php".warn);
 	process.exit(1);
 }
 
