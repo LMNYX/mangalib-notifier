@@ -9,6 +9,9 @@ class Configurator:
 	def getvar(self,var):
 		return self.vars[var]
 
+class Empty:
+	def __init__(self):
+		return
 
 def settype(val, types):
 	return types(val)
@@ -17,13 +20,17 @@ currentConfiguration = Configurator()
 currentConfiguration.setvar("manga", "")
 currentConfiguration.setvar("chapter", -1)
 currentConfiguration.setvar("delay", -1)
-currentConfiguration.setvar("sendto", "")
+currentConfiguration.setvar("url", "")
 currentConfiguration.setvar("method", "") # get, post, put, discord ... nothing more
 defaultConfig = copy.deepcopy(currentConfiguration)
 
+LoadedSaveFile = ""
+
 def isConfigured():
 	global currentConfiguration, defaultConfig
+	skippable = ["chapter"]
 	for k in currentConfiguration.vars:
+		if k in skippable: continue
 		if(currentConfiguration.getvar(k) == defaultConfig.getvar(k)):
 			print(k+" = "+str(defaultConfig.getvar(k))+" / "+str(currentConfiguration.getvar(k)))
 			return False
@@ -69,16 +76,31 @@ def Command(wrapped = None, arg_max = 0, arg_min = 0):
 			return CommandRun( error = True , error_message = "Too many arguments." )
 		if(len(args) < arg_min):
 			return CommandRun( error = True , error_message = "Too few arguments." )
+		for a in args:
+			if not a:
+				return CommandRun( error = True , error_message = "You cannot leave argument empty." )
 		return wrapped(*args)
 	return wrapper(wrapped)
+
+def _cfgsave(fname):
+	global currentConfiguration, LoadedSaveFile
+	cfg = WriteCfg(currentConfiguration.vars)
+	try:
+		with open(fname+".ml-cfg", "w") as f:
+			f.write(cfg)
+	except Exception as e:
+		return CommandRun( error = True, error_message = str(e) )
+	LoadedSaveFile = fname
+	print("["+fname.title()+"] Autosaved.")
+	return CommandRun()
 
 def Nothing():
 	return CommandRun()
 
 def NotifyChapter(chapter, to_read, subtitle, chapter_title):
-	global currentConfiguration
+	global currentConfiguration, LoadedSaveFile
 	sendmethod = currentConfiguration.getvar("method")
-	urlto = currentConfiguration.getvar("sendto")
+	urlto = currentConfiguration.getvar("url")
 	manga = currentConfiguration.getvar("manga")
 	readUrl = "https://mangalib.me/{0}/v{1}/c{2}".format(manga,to_read,chapter)
 	if(sendmethod == "get"):
@@ -94,6 +116,7 @@ def NotifyChapter(chapter, to_read, subtitle, chapter_title):
 			"embeds": [
 			{
 			"title": subtitle,
+			"url": "https://mangalib.me/"+currentConfiguration.getvar("manga"),
 			"description": "Вышла новая глава!",
 			"thumbnail": {"url": "https://mangalib.me/uploads/cover/"+manga+"/cover/cover_250x350.jpg"},
 			"fields": [{
@@ -119,21 +142,32 @@ def NotifierListen(*args):
 		return CommandRun(error=True, error_message = "Your configuration isn't complete. Check help for help.")
 	print("[Listener] Now listening to mangalib.me/"+currentConfiguration.getvar('manga'))
 	while(True):
+		is_first = currentConfiguration.getvar('chapter') == -1
 		res = requests.get("https://mangalib.me/"+currentConfiguration.getvar('manga'))
 		if(res.status_code != 200):
 			return CommandRun( error = True, error_message = "Listener hit {0} error while requesting the manga.".format(str(res.status_code)) )
 		p = re.compile('data-number="(\d+)"')
-		p2 = re.compile('data-manga-name="(\w+)"')
+		p2 = re.compile('window.__MANGA__ = {"id":2331,"name":"(.*)","slug":"yakusoku-no-neverland"}')
 		p3 = re.compile('data-volume="(\d+)"')
-		nvm = p2.search(res.text).group(1)
+		nvm = p2.search(res.text)
+		if(type(nvm) == re.Match):
+			nvm = nvm.group(1)
 		rtx = p.search(res.text)
-		idm = p3.search(res.text).group(1)
-		chap = int(rtx.group(1))
+		if(type(rtx) == re.Match):
+			rtx = rtx.group(1)
+		idm = p3.search(res.text)
+		if(type(idm) == re.Match):
+			idm = idm.group(1)
+		chap = int(rtx)
 		pog = re.compile('<a class="link-default" title="(\w+)"').search(res.text).group(1)
 		if(chap > currentConfiguration.getvar('chapter')):
-			currentConfiguration.setvar('chapter', currentConfiguration.getvar('chapter')+1)
-			print("["+currentConfiguration.getvar('manga').title()+"] Chapter #"+str(currentConfiguration.getvar('chapter'))+" came out!")
-			NotifyChapter(currentConfiguration.getvar('chapter'), idm, nvm,pog)
+			currentConfiguration.setvar('chapter', chap)
+			if not (is_first):
+				print("["+currentConfiguration.getvar('manga').title()+"] Chapter #"+str(chap)+" came out!")
+				NotifyChapter(chap, idm, nvm,pog)
+			else:
+				print("[Listener] OK. Now last chapter is "+str(chap)+". Waiting for new.")
+		_cfgsave(LoadedSaveFile)
 		time.sleep(currentConfiguration.getvar('delay'))
 	return CommandRun()
 
@@ -156,32 +190,43 @@ def AutoConfigurator(*args):
 	print("[AutoNode] Configuration finished.")
 	return CommandRun()
 
-@Command
-def SetNaruto(*args):
-	currentConfiguration.setvar("manga", "naruto")
-	currentConfiguration.setvar("chapter", "700")
-	currentConfiguration.setvar("delay", "300")
-	print("[] Naruto setup loaded.")
-	return CommandRun()
-
-@Command(arg_min=1, arg_max=1)
+@Command(arg_min=0, arg_max=1)
 def SaveCfg(*args):
-	global currentConfiguration
+	global currentConfiguration, LoadedSaveFile
+	args = list(args)
+	if(LoadedSaveFile != "" and len(args) == 0): args.append(LoadedSaveFile)
 	cfg = WriteCfg(currentConfiguration.vars)
-	with open(args[0]+".ml-cfg", "w") as f:
-		f.write(cfg)
+	try:
+		with open(args[0]+".ml-cfg", "w") as f:
+			f.write(cfg)
+	except Exception as e:
+		return CommandRun( error = True, error_message = str(e) )
+	LoadedSaveFile = args[0]
 	print("["+args[0].title()+"] Saved.")
 	return CommandRun()
 
 @Command(arg_min=1, arg_max=1)
 def LoadCfg(*args):
+	global LoadedSaveFile
 	cfg = {}
 	cfg_r = ""
-	with open(args[0]+".ml-cfg", "r") as f:
-		cfg_r = f.read()
+	try:
+		with open(args[0]+".ml-cfg", "r") as f:
+			cfg_r = f.read()
+	except Exception as e:
+		return CommandRun( error = True, error_message = str(e) )
 	cfg = ReadCfg(cfg_r)
+	deprecated = {"sendto": "url"}
 	for k in cfg:
-		currentConfiguration.setvar(k, settype(cfg[k], type(currentConfiguration.vars[k])))
+		deprecated_one = False
+		if(k in deprecated):
+			print('[LoadCFG] '+k+" is deprecated, use "+deprecated[k]+" instead.")
+			deprecated_one = True
+		if deprecated_one:
+			currentConfiguration.setvar(deprecated[k], settype(cfg[k], type(currentConfiguration.vars[deprecated[k]])))
+		else:
+			currentConfiguration.setvar(k, settype(cfg[k], type(currentConfiguration.vars[k])))
+	LoadedSaveFile = args[0]
 	print("["+args[0].title()+"] Loaded.")
 	return CommandRun()
 
@@ -190,7 +235,6 @@ RegisteredCommands = {
 	"listen": {"break": False, "run": NotifierListen},
 	"setnode": {"break": False, "run": SetConfig},
 	"autonode": {"break": False, "run": AutoConfigurator},
-	"naruto": {"break": False, "run": SetNaruto},
 	"save": {"break": False, "run": SaveCfg},
 	"load": {"break": False, "run": LoadCfg},
 	"exit": {"break": True, "run": Nothing},
