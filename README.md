@@ -44,3 +44,6 @@
 ## Настройка для Дискорда
 1. `method` должен быть `discord`;
 2. `url` должна быть ссылкой на Discord вебхук.
+
+## Демонстрация Дискорда
+![Demo](https://i.imgur.com/gC4scNu.png "Demo")
