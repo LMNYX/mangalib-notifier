@@ -16,8 +16,11 @@ while(listening_input):
 			funcrun = cmdrun.ToRun(*args)
 		except KeyboardInterrupt:
 			print("[KeyboardInterrupt] Exited the function.")
-		if(funcrun.error):
-			print('[Error] '+funcrun.error_message)
+		try:
+			if(funcrun.error):
+				print('[Error] '+funcrun.error_message)
+		except Exception:
+			1+1
 	else:
 		continue
 	if(cmdrun.escapeLoop): listening_input = False

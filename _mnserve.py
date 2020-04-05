@@ -1,4 +1,4 @@
-import wrapt, functools, copy, requests, re, time, json
+import wrapt, functools, copy, requests, re, time, json, os
 
 class Configurator:
 	def __init__(self):
@@ -94,6 +94,30 @@ def _cfgsave(fname):
 	print("["+fname.title()+"] Autosaved.")
 	return CommandRun()
 
+def _cfgload(fname):
+	global LoadedSaveFile
+	cfg = {}
+	cfg_r = ""
+	try:
+		with open(fname+".ml-cfg", "r") as f:
+			cfg_r = f.read()
+	except Exception as e:
+		return CommandRun( error = True, error_message = str(e) )
+	cfg = ReadCfg(cfg_r)
+	deprecated = {"sendto": "url"}
+	for k in cfg:
+		deprecated_one = False
+		if(k in deprecated):
+			print('[LoadCFG] '+k+" is deprecated, use "+deprecated[k]+" instead.")
+			deprecated_one = True
+		if deprecated_one:
+			currentConfiguration.setvar(deprecated[k], settype(cfg[k], type(currentConfiguration.vars[deprecated[k]])))
+		else:
+			currentConfiguration.setvar(k, settype(cfg[k], type(currentConfiguration.vars[k])))
+	LoadedSaveFile = fname
+	print("["+fname.title()+"] Loaded.")
+	return CommandRun()
+
 def Nothing():
 	return CommandRun()
 
@@ -164,10 +188,11 @@ def NotifierListen(*args):
 			currentConfiguration.setvar('chapter', chap)
 			if not (is_first):
 				print("["+currentConfiguration.getvar('manga').title()+"] Chapter #"+str(chap)+" came out!")
+				_cfgsave(LoadedSaveFile)
 				NotifyChapter(chap, idm, nvm,pog)
 			else:
 				print("[Listener] OK. Now last chapter is "+str(chap)+". Waiting for new.")
-		_cfgsave(LoadedSaveFile)
+				_cfgsave(LoadedSaveFile)
 		time.sleep(currentConfiguration.getvar('delay'))
 	return CommandRun()
 
@@ -195,6 +220,7 @@ def SaveCfg(*args):
 	global currentConfiguration, LoadedSaveFile
 	args = list(args)
 	if(LoadedSaveFile != "" and len(args) == 0): args.append(LoadedSaveFile)
+	if(args[0] == "autoload"): return CommandRun( error = True , error_message = "You cannot load autoload." )
 	cfg = WriteCfg(currentConfiguration.vars)
 	try:
 		with open(args[0]+".ml-cfg", "w") as f:
@@ -208,6 +234,7 @@ def SaveCfg(*args):
 @Command(arg_min=1, arg_max=1)
 def LoadCfg(*args):
 	global LoadedSaveFile
+	if(args[0] == "autoload"): return CommandRun( error = True , error_message = "You cannot load autoload." )
 	cfg = {}
 	cfg_r = ""
 	try:
@@ -244,3 +271,8 @@ def run(cmd):
 	args = cmd = cmd.split(' ')
 	if(cmd[0] in RegisteredCommands): return RunResponse(RegisteredCommands[args[0]]['break'], ToRun=RegisteredCommands[args[0]]['run'])
 	return RunResponse(False)
+
+
+# AFTER LOADING
+###
+if(os.path.isfile("autoload.ml-cfg")): _cfgload("autoload")
