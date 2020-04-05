@@ -276,3 +276,7 @@ def run(cmd):
 # AFTER LOADING
 ###
 if(os.path.isfile("autoload.ml-cfg")): _cfgload("autoload")
+if(os.path.isfile("autolisten.ml-cfg")):
+	_cfgload("autolisten")
+	NotifierListen()
+	os._exit(0)

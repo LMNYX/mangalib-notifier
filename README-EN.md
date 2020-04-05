@@ -57,7 +57,7 @@ For deploying on cloud services you don't need to do much, Heroku especially:
 3. Use `autonode` to fill all fields (if you want chapter to be autoupdated to last use `-1` in `chapter`)
 4. Saving it with any name using `save` (except autoload)
 5. Exit (`exit` or `Ctrl+^C`)
-6. Rename new file to autoload.ml-cfg
+6. Rename new file to `autolisten.ml-cfg`
 7. Create new app and deploy to Heroku.
 
 ### AWS and other dedicated cloud servers (Azure, Google Cloud, ...) on Linux
