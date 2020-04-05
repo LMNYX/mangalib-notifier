@@ -220,7 +220,7 @@ def SaveCfg(*args):
 	global currentConfiguration, LoadedSaveFile
 	args = list(args)
 	if(LoadedSaveFile != "" and len(args) == 0): args.append(LoadedSaveFile)
-	if(args[0] == "autoload"): return CommandRun( error = True , error_message = "You cannot load autoload." )
+	if(args[0] == "autoload" or args[0] == "autolisten"): return CommandRun( error = True , error_message = "You cannot save autos." )
 	cfg = WriteCfg(currentConfiguration.vars)
 	try:
 		with open(args[0]+".ml-cfg", "w") as f:
@@ -234,7 +234,7 @@ def SaveCfg(*args):
 @Command(arg_min=1, arg_max=1)
 def LoadCfg(*args):
 	global LoadedSaveFile
-	if(args[0] == "autoload"): return CommandRun( error = True , error_message = "You cannot load autoload." )
+	if(args[0] == "autoload" or args[0] == "autolisten"): return CommandRun( error = True , error_message = "You cannot load autos." )
 	cfg = {}
 	cfg_r = ""
 	try:

@@ -55,14 +55,14 @@ For deploying on cloud services you don't need to do much, Heroku especially:
 1. Downloading last release `source` archive, or `master` development branch.
 2. Run `manga.py`
 3. Use `autonode` to fill all fields (if you want chapter to be autoupdated to last use `-1` in `chapter`)
-4. Saving it with any name using `save` (except autoload)
+4. Saving it with any name using `save` (except autoload & autolisten)
 5. Exit (`exit` or `Ctrl+^C`)
 6. Rename new file to `autolisten.ml-cfg`
 7. Create new app and deploy to Heroku.
 
 ### AWS and other dedicated cloud servers (Azure, Google Cloud, ...) on Linux
 There's even simpler, because dedicated servers can be used as PC:
-1. Follow the instructions above to create `autoload.ml-cfg` file
+1. Follow the instructions above to create `autolisten.ml-cfg` file
 2. Install `screen` (`sudo apt install screen`)
 3. Create new env `screen -S mangalibenv`
 4. Run script
