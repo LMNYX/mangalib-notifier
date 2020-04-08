@@ -1,5 +1,5 @@
 import wrapt, functools, copy, requests, re, time, json, os
-
+from collections import namedtuple
 class Configurator:
 	def __init__(self):
 		self.vars = {}
@@ -23,6 +23,34 @@ currentConfiguration.setvar("delay", -1)
 currentConfiguration.setvar("url", "")
 currentConfiguration.setvar("method", "") # get, post, put, discord ... nothing more
 defaultConfig = copy.deepcopy(currentConfiguration)
+
+localization = {
+	"save_autosave": "Autosaved.",
+	"save_save": "Saved.",
+	"save_load": "Loaded.",
+	"save_autos": "You cannot save autos",
+	"save_autoload": "Autoloaded.",
+	"deprecated_method": "{0} is deprecated, use {1} instead.",
+	"notify_method_wrong": "Your method is wrong, it must be `get, `post`, `put` or `discord`.",
+	"listener_start": "Now listening to {0}",
+	"listener_new": "New chapter #{0} came out!",
+	"listener_autoset": "OK. Now waiting chapter to be greater than {0}.",
+	"listener_configure": "Your configuration isn't complete.",
+	"listener_error": "Listener hit {0} error.",
+	"node_existance": "There is no such node named `{0}`.",
+	"node_set": "Node {0} is now equals {1}.",
+	"node_auto_complete": "Autonode setup complete.",
+	"cmd_many": "Too many arguments",
+	"cmd_few": "Too few arguments",
+	"cmd_empty": "You cannot leave argument(s) empty."
+}
+
+lclz = namedtuple("Localization", localization.keys())(*localization.values())
+
+def LocModify(stra, val):
+	global localization, lclz
+	localization[stra] = val
+	lclz = namedtuple("Localization", localization.keys())(*localization.values())
 
 LoadedSaveFile = ""
 
@@ -73,12 +101,12 @@ def Command(wrapped = None, arg_max = 0, arg_min = 0):
 	@wrapt.decorator
 	def wrapper(wrapped, instance, args, kwargs):
 		if(len(args) > arg_max):
-			return CommandRun( error = True , error_message = "Too many arguments." )
+			return CommandRun( error = True , error_message = lclz.cmd_many )
 		if(len(args) < arg_min):
-			return CommandRun( error = True , error_message = "Too few arguments." )
+			return CommandRun( error = True , error_message = lclz.cmd_few )
 		for a in args:
 			if not a:
-				return CommandRun( error = True , error_message = "You cannot leave argument empty." )
+				return CommandRun( error = True , error_message = lclz.cmd_empty )
 		return wrapped(*args)
 	return wrapper(wrapped)
 
@@ -91,7 +119,7 @@ def _cfgsave(fname):
 	except Exception as e:
 		return CommandRun( error = True, error_message = str(e) )
 	LoadedSaveFile = fname
-	print("["+fname.title()+"] Autosaved.")
+	print("["+fname.title()+"] {0}".format(lclz.save_autosave))
 	return CommandRun()
 
 def _cfgload(fname):
@@ -108,14 +136,14 @@ def _cfgload(fname):
 	for k in cfg:
 		deprecated_one = False
 		if(k in deprecated):
-			print('[LoadCFG] '+k+" is deprecated, use "+deprecated[k]+" instead.")
+			print('[LoadCFG] '+ lclz.deprecated_method.format(k, deprecated[k]))
 			deprecated_one = True
 		if deprecated_one:
 			currentConfiguration.setvar(deprecated[k], settype(cfg[k], type(currentConfiguration.vars[deprecated[k]])))
 		else:
 			currentConfiguration.setvar(k, settype(cfg[k], type(currentConfiguration.vars[k])))
 	LoadedSaveFile = fname
-	print("["+fname.title()+"] Loaded.")
+	print("["+fname.title()+"] {0}".format(lclz.save_autoload))
 	return CommandRun()
 
 def Nothing():
@@ -152,7 +180,7 @@ def NotifyChapter(chapter, to_read, subtitle, chapter_title):
 		}
 		requests.post(urlto,data=json.dumps(req), headers={"Content-Type": "application/json"})
 	else:
-		print("[Error] Your method node is wrong. It must be `get`, `post`, `put` or `discord`.")
+		print("[Error] {0}".format(lclz.notify_method_wrong))
 
 @Command
 def CheckGithub(*args):
@@ -163,15 +191,15 @@ def CheckGithub(*args):
 def NotifierListen(*args):
 	global currentConfiguration
 	if not isConfigured():
-		return CommandRun(error=True, error_message = "Your configuration isn't complete. Check help for help.")
-	print("[Listener] Now listening to mangalib.me/"+currentConfiguration.getvar('manga'))
+		return CommandRun(error=True, error_message = lclz.listener_configure)
+	print("[Listener] {0}".format(" mangalib.me/"+currentConfiguration.getvar('manga')))
 	while(True):
 		is_first = currentConfiguration.getvar('chapter') == -1
 		res = requests.get("https://mangalib.me/"+currentConfiguration.getvar('manga'))
 		if(res.status_code != 200):
-			return CommandRun( error = True, error_message = "Listener hit {0} error while requesting the manga.".format(str(res.status_code)) )
+			return CommandRun( error = True, error_message = lclz.listener_error.format(str(res.status_code)) )
 		p = re.compile('data-number="(\d+)"')
-		p2 = re.compile('window.__MANGA__ = {"id":2331,"name":"(.*)","slug":"yakusoku-no-neverland"}')
+		p2 = re.compile('window.__MANGA__ = {"id":2331,"name":"(.*)"')
 		p3 = re.compile('data-volume="(\d+)"')
 		nvm = p2.search(res.text)
 		if(type(nvm) == re.Match):
@@ -187,11 +215,11 @@ def NotifierListen(*args):
 		if(chap > currentConfiguration.getvar('chapter')):
 			currentConfiguration.setvar('chapter', chap)
 			if not (is_first):
-				print("["+currentConfiguration.getvar('manga').title()+"] Chapter #"+str(chap)+" came out!")
+				print("["+currentConfiguration.getvar('manga').title()+"] "+lclz.listener_new.format(str(chap)))
 				_cfgsave(LoadedSaveFile)
 				NotifyChapter(chap, idm, nvm,pog)
 			else:
-				print("[Listener] OK. Now last chapter is "+str(chap)+". Waiting for new.")
+				print("[Listener] "+lclz.listener_autoset.format(str(chap)))
 				_cfgsave(LoadedSaveFile)
 		time.sleep(currentConfiguration.getvar('delay'))
 	return CommandRun()
@@ -199,9 +227,9 @@ def NotifierListen(*args):
 @Command(arg_min=2, arg_max=2)
 def SetConfig(*args):
 	global currentConfiguration, defaultConfig
-	if not (args[0] in defaultConfig.vars): return CommandRun( error = True , error_message = "There is no such configuration node. ({0})".format(args[0]) )
+	if not (args[0] in defaultConfig.vars): return CommandRun( error = True , error_message = lclz.node_existance.format(args[0]) )
 	currentConfiguration.setvar(args[0], settype(args[1], type(defaultConfig.vars[args[0]])))
-	print("[Configurator] Node {0} is now set to `{1}`.".format(args[0], currentConfiguration.getvar(args[0])))
+	print("[Configurator] "+lclz.node_set.format(args[0], currentConfiguration.getvar(args[0])))
 	return CommandRun()
 
 
@@ -212,7 +240,7 @@ def AutoConfigurator(*args):
 		print(k.title()+": ", end="")
 		i = input()
 		currentConfiguration.setvar(k, settype(i, type(defaultConfig.vars[k])))
-	print("[AutoNode] Configuration finished.")
+	print("[AutoNode] "+lclz.node_auto_complete)
 	return CommandRun()
 
 @Command(arg_min=0, arg_max=1)
@@ -228,7 +256,7 @@ def SaveCfg(*args):
 	except Exception as e:
 		return CommandRun( error = True, error_message = str(e) )
 	LoadedSaveFile = args[0]
-	print("["+args[0].title()+"] Saved.")
+	print("["+args[0].title()+"] "+lclz.save_save)
 	return CommandRun()
 
 @Command(arg_min=1, arg_max=1)
@@ -247,14 +275,14 @@ def LoadCfg(*args):
 	for k in cfg:
 		deprecated_one = False
 		if(k in deprecated):
-			print('[LoadCFG] '+k+" is deprecated, use "+deprecated[k]+" instead.")
+			print('[LoadCFG] '+lclz.deprecated_method.format(k,deprecated[k]))
 			deprecated_one = True
 		if deprecated_one:
 			currentConfiguration.setvar(deprecated[k], settype(cfg[k], type(currentConfiguration.vars[deprecated[k]])))
 		else:
 			currentConfiguration.setvar(k, settype(cfg[k], type(currentConfiguration.vars[k])))
 	LoadedSaveFile = args[0]
-	print("["+args[0].title()+"] Loaded.")
+	print("["+args[0].title()+"] "+lclz.save_load)
 	return CommandRun()
 
 RegisteredCommands = {
@@ -275,6 +303,16 @@ def run(cmd):
 
 # AFTER LOADING
 ###
+if(os.path.isfile("locmod.json")):
+	print("[Loc] Localization modifier found. Loading..")
+	lm = open('locmod.json')
+	try:
+		_temploc = json.loads(lm.read())
+		lm.close()
+		for i in _temploc:
+			LocModify(i, _temploc[i])
+	except json.decoder.JSONDecodeError:
+		print('[Loc] locmod file is corrupted.')
 if(os.path.isfile("autoload.ml-cfg")): _cfgload("autoload")
 if(os.path.isfile("autolisten.ml-cfg")):
 	_cfgload("autolisten")
