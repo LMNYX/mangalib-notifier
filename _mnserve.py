@@ -42,7 +42,8 @@ localization = {
 	"node_auto_complete": "Autonode setup complete.",
 	"cmd_many": "Too many arguments",
 	"cmd_few": "Too few arguments",
-	"cmd_empty": "You cannot leave argument(s) empty."
+	"cmd_empty": "You cannot leave argument(s) empty.",
+	"no_chapters": "Manga you provided {0} do not have any chapter yet."
 }
 
 lclz = namedtuple("Localization", localization.keys())(*localization.values())
@@ -154,6 +155,7 @@ def NotifyChapter(chapter, to_read, subtitle, chapter_title):
 	sendmethod = currentConfiguration.getvar("method")
 	urlto = currentConfiguration.getvar("url")
 	manga = currentConfiguration.getvar("manga")
+	print("https://mangalib.me/uploads/cover/"+manga+"/cover/cover_250x350.jpg")
 	readUrl = "https://mangalib.me/{0}/v{1}/c{2}".format(manga,to_read,chapter)
 	if(sendmethod == "get"):
 		requests.get(urlto, params={'manga': manga, 'chapter': chapter, "to_read": readUrl})
@@ -179,6 +181,8 @@ def NotifyChapter(chapter, to_read, subtitle, chapter_title):
 			]
 		}
 		requests.post(urlto,data=json.dumps(req), headers={"Content-Type": "application/json"})
+	elif(sendmethod == "log"):
+		print(f'[NEW] {subtitle}: Chapter {chapter} ({chapter_title}) came out! Read here {readUrl}')
 	else:
 		print("[Error] {0}".format(lclz.notify_method_wrong))
 
@@ -199,19 +203,24 @@ def NotifierListen(*args):
 		if(res.status_code != 200):
 			return CommandRun( error = True, error_message = lclz.listener_error.format(str(res.status_code)) )
 		p = re.compile('data-number="(\d+)"')
-		p2 = re.compile('window.__MANGA__ = {"id":2331,"name":"(.*)"')
+		p2 = re.compile('window.__MANGA__ = {"id":(\d+),"name":"(.*)",')
 		p3 = re.compile('data-volume="(\d+)"')
-		nvm = p2.search(res.text)
-		if(type(nvm) == re.Match):
-			nvm = nvm.group(1)
+		nvm = list(p2.findall(res.text)[0])
+		if(len(nvm) > 1):
+			nvm = nvm[1]
 		rtx = p.search(res.text)
+		print(str(rtx) + " \\\\ "+ str(type(rtx)))
 		if(type(rtx) == re.Match):
 			rtx = rtx.group(1)
 		idm = p3.search(res.text)
 		if(type(idm) == re.Match):
 			idm = idm.group(1)
-		chap = int(rtx)
-		pog = re.compile('<a class="link-default" title="(\w+)"').search(res.text).group(1)
+		if(rtx != None):
+			chap = int(rtx)
+		else:
+			return CommandRun( error = True , error_message = lclz.no_chapters.format(currentConfiguration.manga))
+		pog = re.compile('<a class="link-default" title="(.*)"').search(res.text).group(1)
+		print(str(pog))
 		if(chap > currentConfiguration.getvar('chapter')):
 			currentConfiguration.setvar('chapter', chap)
 			if not (is_first):
